@@ -279,11 +279,10 @@ with tab3:
                         display_df.style.apply(style_pivot, axis=1),
                         use_container_width=True, hide_index=True
                     )
-                    st.caption("🔵 Biru = Cleaning | 🟡 Kuning = Resting period")
 
                     excel_data = pivot_to_excel(pivot_df, meta, st.session_state.master_mixer)
                     st.download_button(
-                        "📥 Download Excel",
+                        " Download Excel",
                         excel_data,
                         "jadwal_mixing.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
