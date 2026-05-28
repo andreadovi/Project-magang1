@@ -77,24 +77,24 @@ def build_pivot(schedule_df, master_mixer, master_produk, date_range):
     # ── Build dataframe ───────────────────────────────────────
     # Find which mixer was actually used per product
     scheduled_mixer = {}  # kode -> mixer_name
-    for (mixer, kode), slots in pivot_data.items():
+    for (mx, kd), slots in pivot_data.items():
         if any(v > 0 for v in slots.values()):
-            scheduled_mixer[kode] = mixer
+            scheduled_mixer[kd] = mx
 
     records = []
-    for mixer, kode, nama in rows:
+    for row_mixer, kode, nama in rows:
         # Skip if product was scheduled on a different mixer
-        if kode in scheduled_mixer and scheduled_mixer[kode] != mixer:
+        if kode in scheduled_mixer and scheduled_mixer[kode] != row_mixer:
             continue
-        # Skip if product has no data AND was not scheduled here
-        has_data = bool(pivot_data.get((mixer, kode), {}))
-        has_clean = any((mixer, kode, d, s) in cleaning_cells for (d, s) in col_keys)
+        # Skip if product has no data AND no cleaning on this mixer
+        has_data  = bool(pivot_data.get((row_mixer, kode), {}))
+        has_clean = any((row_mixer, kode, d, s) in cleaning_cells for (d, s) in col_keys)
         if not has_data and not has_clean:
             continue
 
-        rec = {"Mixer": mixer, "Kode_Produk": kode, "Nama_Produk": nama}
+        rec = {"Mixer": row_mixer, "Kode_Produk": kode, "Nama_Produk": nama}
         for (d, s), label in zip(col_keys, col_labels):
-            val = pivot_data.get((mixer, kode), {}).get((d, s), "")
+            val = pivot_data.get((row_mixer, kode), {}).get((d, s), "")
             rec[label] = val if val != 0 else ""
         records.append(rec)
 
