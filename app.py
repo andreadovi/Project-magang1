@@ -148,6 +148,8 @@ with tab2:
         st.session_state[grid_key] = edited_df
 
         if st.button("💾 Simpan Planning", type="primary", use_container_width=True):
+            # Reset dulu sebelum simpan baru (hindari duplikasi)
+            st.session_state.filling_plan = pd.DataFrame()
             # Convert grid to long format filling_plan
             rows = []
             for _, row in edited_df.iterrows():
