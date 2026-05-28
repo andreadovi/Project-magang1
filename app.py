@@ -217,9 +217,9 @@ with tab3:
         if st.button("⚡ Generate Jadwal Mixing", type="primary", use_container_width=True):
             with st.spinner("Menjadwalkan mixing..."):
                 result = generate_mixing_schedule(
-                    st.write("**Debug schedule:**")
-                    st.dataframe(result["schedule"])
-                    st.write("**Unscheduled:**", result["unscheduled"])
+                    st.write("**Debug schedule:**"),
+                    st.dataframe(result["schedule"]),
+                    st.write("**Unscheduled:**", result["unscheduled"]),
                     st.session_state.master_mixer,
                     st.session_state.master_produk,
                     st.session_state.filling_plan
