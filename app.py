@@ -9,7 +9,7 @@ from scheduler import generate_mixing_schedule
 from pivot import build_pivot, pivot_to_excel
 
 st.set_page_config(page_title="Mixing Scheduler", page_icon="🧪", layout="wide")
-st.title("🧪 Mixing Schedule Planner")
+st.title("Mixing Schedule Planner")
 
 DAYS_ID = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
 
@@ -21,7 +21,7 @@ if "master_produk" not in st.session_state:
 if "filling_plan"  not in st.session_state:
     st.session_state.filling_plan  = pd.DataFrame()
 
-tab1, tab2, tab3 = st.tabs(["⚙️ Master Data", "📋 Input Planning", "📅 Jadwal Mixing"])
+tab1, tab2, tab3 = st.tabs(["Master Data", "Input Planning", "Jadwal Mixing"])
 
 # ═════════════════════════════════════════════════════════════════════════════
 # TAB 1 — MASTER DATA
@@ -38,7 +38,7 @@ with tab1:
             "Grup_Cleaning": ["Grup 1", "Grup 1", "Grup 2"]
         })
         buf = io.BytesIO(); tmpl_mixer.to_excel(buf, index=False)
-        st.download_button("📥 Download Template Mixer", buf.getvalue(),
+        st.download_button("Download Template Mixer", buf.getvalue(),
                            "template_master_mixer.xlsx", use_container_width=True)
 
         up_mixer = st.file_uploader("Upload Master Mixer", type=["xlsx", "csv"], key="mixer_upload")
@@ -55,7 +55,7 @@ with tab1:
             st.dataframe(st.session_state.master_mixer, use_container_width=True, hide_index=True)
 
     with col2:
-        st.subheader("📦 Master Produk")
+        st.subheader("Master Produk")
         st.caption("**Resting_Days**: `2` = perlu didiamkan 2 hari, `0` = tidak. **Mixer_Kompatibel**: pisah koma.")
         tmpl_produk = pd.DataFrame({
             "Kode_Produk":      ["P001", "P002", "P003"],
@@ -66,7 +66,7 @@ with tab1:
             "Mixer_Kompatibel": ["Mixer A, Mixer B", "Mixer B", "Mixer C"]
         })
         buf2 = io.BytesIO(); tmpl_produk.to_excel(buf2, index=False)
-        st.download_button("📥 Download Template Produk", buf2.getvalue(),
+        st.download_button("Download Template Produk", buf2.getvalue(),
                            "template_master_produk.xlsx", use_container_width=True)
 
         up_produk = st.file_uploader("Upload Master Produk", type=["xlsx", "csv"], key="produk_upload")
@@ -92,7 +92,7 @@ with tab2:
         st.warning("⚠️ Upload Master Produk dulu di tab Master Data.")
     else:
         # ── Week picker ───────────────────────────────────────────────────────
-        st.subheader("📆 Pilih Minggu Filling")
+        st.subheader("Pilih Minggu Filling")
         filling_week = st.date_input(
             "Pilih tanggal mana saja dalam minggu filling",
             value=datetime.today(),
@@ -114,7 +114,7 @@ with tab2:
         st.caption(f"Minggu: **{week_monday.strftime('%d %b')} — {week_dates[-1].strftime('%d %b %Y')}**")
 
         # ── Build editable grid ───────────────────────────────────────────────
-        st.subheader("📋 Tabel Planning (isi jumlah CS)")
+        st.subheader("Tabel Planning (isi jumlah CS)")
         st.caption("Kosongkan sel jika tidak ada filling. Centang **Urgent** per produk.")
 
         produk_df = st.session_state.master_produk
@@ -145,7 +145,7 @@ with tab2:
         )
         st.session_state[grid_key] = edited_df
 
-        if st.button("💾 Simpan Planning", type="primary", use_container_width=True):
+        if st.button("Simpan Planning", type="primary", use_container_width=True):
             # Convert grid to long format filling_plan
             rows = []
             for _, row in edited_df.iterrows():
@@ -289,7 +289,7 @@ with tab3:
                         use_container_width=True
                     )
 
-                with st.expander("📋 Detail Jadwal (Raw)"):
+                with st.expander("Detail Jadwal (Raw)"):
                     st.dataframe(
                         schedule_df.drop(columns=["Cleaning"], errors="ignore"),
                         use_container_width=True, hide_index=True
