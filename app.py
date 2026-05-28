@@ -204,15 +204,16 @@ with tab3:
 
         c1, c2 = st.columns(2)
         with c1:
-            mix_start = st.date_input("Dari tanggal (Jumat)", value=default_start, key="mix_start")
+            mix_start = st.date_input("Dari tanggal (Jumat)", value=default_start)
         with c2:
-            mix_end   = st.date_input("Sampai tanggal", value=default_end, key="mix_end")
+            mix_end   = st.date_input("Sampai tanggal", value=default_end)
 
         date_range = []
         d = mix_start
         while d <= mix_end:
             date_range.append(d.strftime("%Y-%m-%d"))
             d += timedelta(days=1)
+        st.caption(f"Range mixing: **{mix_start.strftime('%d %b')} — {mix_end.strftime('%d %b %Y')}** ({len(date_range)} hari)")
 
         if st.button("⚡ Generate Jadwal Mixing", type="primary", use_container_width=True):
             with st.spinner("Menjadwalkan mixing..."):
