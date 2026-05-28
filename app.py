@@ -236,7 +236,7 @@ with tab3:
 
             if shifted:
                 st.subheader("🔀 Jadwal Filling Digeser (Tidak Urgent)")
-                st.dataframe(pd.DataFrame(shifted).style.applymap(
+                st.dataframe(pd.DataFrame(shifted).style.map(
                     lambda _: "background-color: #fff3cd"),
                     use_container_width=True, hide_index=True)
 
