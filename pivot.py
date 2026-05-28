@@ -43,24 +43,28 @@ def build_pivot(schedule_df, master_mixer, master_produk, date_range):
     pivot_data     = {}  # (mixer, kode) -> {(date, shift): kg}
     cleaning_cells = set()  # (mixer, kode, date, shift)
     resting_cells  = set()  # (mixer, kode, date, shift) — for info only
+    scheduled_mixer = {}  # kode -> actual mixer used (from schedule_df directly)
 
     for _, row in schedule_df.iterrows():
-        mixer    = row["Mixer"]
+        mx       = row["Mixer"]
         date     = row["Tanggal"]
         shift    = int(row["Shift"])
         cleaning = row.get("Cleaning", False)
 
         if cleaning:
             for r in rows:
-                if r[0] == mixer:
-                    cleaning_cells.add((mixer, r[1], date, shift))
+                if r[0] == mx:
+                    cleaning_cells.add((mx, r[1], date, shift))
             continue
 
         kode         = row["Kode_Produk"]
         kg           = float(row["Total_kg"]) if row["Total_kg"] else 0
         resting_days = int(row.get("Resting_Days", 0))
 
-        key = (mixer, kode)
+        # Track which mixer actually used for this product
+        scheduled_mixer[kode] = mx
+
+        key = (mx, kode)
         if key not in pivot_data:
             pivot_data[key] = {}
         pivot_data[key][(date, shift)] = pivot_data[key].get((date, shift), 0) + kg
@@ -72,15 +76,9 @@ def build_pivot(schedule_df, master_mixer, master_produk, date_range):
                 rest_dt  = mix_dt + timedelta(days=rd)
                 rest_str = rest_dt.strftime("%Y-%m-%d")
                 for rs in [1, 2, 3]:
-                    resting_cells.add((mixer, kode, rest_str, rs))
+                    resting_cells.add((mx, kode, rest_str, rs))
 
     # ── Build dataframe ───────────────────────────────────────
-    # Find which mixer was actually used per product
-    scheduled_mixer = {}  # kode -> mixer_name
-    for (mx, kd), slots in pivot_data.items():
-        if any(v > 0 for v in slots.values()):
-            scheduled_mixer[kd] = mx
-
     records = []
     for row_mixer, kode, nama in rows:
         # Skip if product was scheduled on a different mixer
