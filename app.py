@@ -217,9 +217,6 @@ with tab3:
         if st.button("⚡ Generate Jadwal Mixing", type="primary", use_container_width=True):
             with st.spinner("Menjadwalkan mixing..."):
                 result = generate_mixing_schedule(
-                    st.write("**Debug schedule:**"),
-                    st.dataframe(result["schedule"]),
-                    st.write("**Unscheduled:**", result["unscheduled"]),
                     st.session_state.master_mixer,
                     st.session_state.master_produk,
                     st.session_state.filling_plan
@@ -300,3 +297,10 @@ with tab3:
                         schedule_df.drop(columns=["Cleaning"], errors="ignore"),
                         use_container_width=True, hide_index=True
                     )
+
+                with st.expander("🔍 Debug: Pivot Rows"):
+                    if not pivot_df.empty:
+                        st.write("Baris di pivot:", pivot_df[["Mixer","Kode_Produk","Nama_Produk"]].to_dict("records"))
+                    else:
+                        st.write("Pivot kosong!")
+                    st.write("Unscheduled:", result["unscheduled"])
