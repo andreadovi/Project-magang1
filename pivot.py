@@ -208,18 +208,7 @@ def pivot_to_excel(pivot_df, meta, master_mixer):
         cell_mixer.font      = Font(bold=True)
         cell_mixer.alignment = center
 
-    # ── Legend row ────────────────────────────────────────────
-    cur_row += 1
-    ws.cell(row=cur_row, column=1, value="Keterangan:").font = Font(bold=True)
-    legends = [
-        (clean_fill, "Cleaning (ganti grup produk)"),
-        (rest_fill,  "Resting period (produk perlu didiamkan 2 hari)")
-    ]
-    for i, (fill, label) in enumerate(legends):
-        col  = 2 + i * 2
-        cell = ws.cell(row=cur_row, column=col)
-        cell.fill = fill
-        ws.cell(row=cur_row, column=col + 1, value=label)
+
 
     # ── Column widths ─────────────────────────────────────────
     ws.column_dimensions["A"].width = 12
