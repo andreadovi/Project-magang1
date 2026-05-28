@@ -38,83 +38,70 @@ def get_deadline_idx(fill_date, fill_shift, resting_days):
 def try_schedule_on_mixer(mixer_name, mixer_schedule, deadline_idx,
                            target_kg, cap, grup_produk, mixer_last_grup):
     """
-    Try to schedule all target_kg on a SINGLE mixer using a CONTIGUOUS block
-    of slots going backwards from deadline_idx. No gaps allowed.
-    If a slot is blocked, move the entire window further back and retry.
+    Try to schedule all target_kg on a SINGLE mixer using CONTIGUOUS slots
+    going backwards from deadline_idx. No gaps allowed.
+    Slots with partial availability are included; fully blocked slots
+    (cleaning or grup conflict) cause the window to shift back.
     """
-    batches_needed = math.ceil(target_kg / cap)
-    shifts_needed  = math.ceil(batches_needed / BATCHES_PER_SHIFT)
+    remaining_kg  = target_kg
+    search_idx    = deadline_idx
+    assignments   = []
 
-    window_end = deadline_idx
-
-    while window_end >= 0:
-        slots   = []
-        idx     = window_end
-        blocked = False
-        blocked_at = idx
-
-        while len(slots) < shifts_needed:
-            if idx < 0:
-                return None
-
-            state = mixer_schedule[mixer_name].get(idx, {
-                "batches_used": 0, "grup": None,
-                "cleaning": False, "items": []
-            })
-
-            if state.get("cleaning", False):
-                blocked = True
-                blocked_at = idx
-                break
-
-            avail = BATCHES_PER_SHIFT - state.get("batches_used", 0)
-            if avail <= 0:
-                blocked = True
-                blocked_at = idx
-                break
-
-            used_before = sorted([s for s in mixer_schedule[mixer_name] if s < idx], reverse=True)
-            last_grup   = mixer_schedule[mixer_name][used_before[0]]["grup"] if used_before else None
-            if last_grup is not None and last_grup != grup_produk:
-                blocked = True
-                blocked_at = idx
-                break
-
-            slots.append((idx, avail, last_grup))
-            idx -= 1
-
-        if blocked:
-            window_end = blocked_at - 1
-            continue
-
-        if len(slots) < shifts_needed:
+    while remaining_kg > 0:
+        if search_idx < 0:
             return None
 
-        assignments = []
-        remaining   = target_kg
-        for slot_idx, avail, last_grup in slots:
-            if remaining <= 0:
-                break
-            use_kg      = min(avail * cap, remaining)
-            use_batches = math.ceil(use_kg / cap)
-            actual_kg   = use_batches * cap
-            s_date, s_shift = index_to_shift(slot_idx)
-            assignments.append({
-                "mixer":        mixer_name,
-                "shift_idx":    slot_idx,
-                "batches":      use_batches,
-                "kg_per_batch": cap,
-                "kg":           actual_kg,
-                "cs":           0,
-                "last_grup":    last_grup,
-                "date":         s_date,
-                "shift":        s_shift
-            })
-            remaining -= actual_kg
+        state = mixer_schedule[mixer_name].get(search_idx, {
+            "batches_used": 0, "grup": None,
+            "cleaning": False, "items": []
+        })
 
-        return assignments if remaining <= 0 else None
+        # Hard block: cleaning shift
+        if state.get("cleaning", False):
+            # Gap not allowed — reset and move window before this block
+            assignments  = []
+            remaining_kg = target_kg
+            search_idx  -= 1
+            continue
 
-    return None
+        avail = BATCHES_PER_SHIFT - state.get("batches_used", 0)
+
+        # Hard block: fully used
+        if avail <= 0:
+            assignments  = []
+            remaining_kg = target_kg
+            search_idx  -= 1
+            continue
+
+        # Hard block: grup conflict
+        used_before = sorted([s for s in mixer_schedule[mixer_name] if s < search_idx], reverse=True)
+        last_grup   = mixer_schedule[mixer_name][used_before[0]]["grup"] if used_before else None
+        if last_grup is not None and last_grup != grup_produk:
+            assignments  = []
+            remaining_kg = target_kg
+            search_idx  -= 1
+            continue
+
+        # Slot is usable — add to front of assignments (we go backwards)
+        use_kg      = min(avail * cap, remaining_kg)
+        use_batches = math.ceil(use_kg / cap)
+        actual_kg   = use_batches * cap
+        s_date, s_shift = index_to_shift(search_idx)
+        assignments.insert(0, {
+            "mixer":        mixer_name,
+            "shift_idx":    search_idx,
+            "batches":      use_batches,
+            "kg_per_batch": cap,
+            "kg":           actual_kg,
+            "cs":           0,
+            "last_grup":    last_grup,
+            "date":         s_date,
+            "shift":        s_shift
+        })
+        remaining_kg -= actual_kg
+        search_idx   -= 1
+
+    return assignments if remaining_kg <= 0 else None
 
 
 def generate_mixing_schedule(master_mixer, master_produk, filling_plan):
