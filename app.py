@@ -128,42 +128,44 @@ with tab2:
         )
 
         import re
-        input_kodes = [k.strip() for k in re.split(r"[,\n\r]+|\s+", raw_input) if k.strip()]
 
-        if input_kodes:
-            # Normalize kode ke string untuk perbandingan
+        col_btn1, col_btn2 = st.columns([3, 1])
+        with col_btn2:
+            tampilkan = st.button("🔍 Tampilkan Tabel", use_container_width=True)
+
+        # Hanya proses kode dan buat grid baru saat tombol diklik
+        grid_key = f"grid_{week_monday.strftime('%Y%m%d')}"
+
+        if tampilkan:
+            input_kodes = [k.strip() for k in re.split(r"[,\n\r\s]+", raw_input) if k.strip()]
             all_kodes_str   = [str(k) for k in all_kodes]
             input_kodes_str = [str(k) for k in input_kodes]
             not_found   = [k for k in input_kodes_str if k not in all_kodes_str]
             valid_kodes = [k for k in input_kodes_str if k in all_kodes_str]
             if not_found:
                 st.warning(f"⚠️ Tidak ditemukan di master: {', '.join(not_found)}")
-            # Jaga urutan sesuai input
-            produk_df_str = produk_df.copy()
-            produk_df_str["Kode_Produk_str"] = produk_df_str["Kode_Produk"].astype(str)
-            order_map   = {k: i for i, k in enumerate(valid_kodes)}
-            filtered_df = produk_df_str[produk_df_str["Kode_Produk_str"].isin(valid_kodes)].copy()
-            filtered_df["_order"] = filtered_df["Kode_Produk_str"].map(order_map)
-            filtered_df = filtered_df.sort_values("_order").drop(columns=["_order","Kode_Produk_str"]).reset_index(drop=True)
-        else:
-            valid_kodes = []
-            filtered_df = pd.DataFrame(columns=produk_df.columns)
+            if valid_kodes:
+                produk_df_str = produk_df.copy()
+                produk_df_str["_kode_str"] = produk_df_str["Kode_Produk"].astype(str)
+                order_map   = {k: i for i, k in enumerate(valid_kodes)}
+                filtered_df = produk_df_str[produk_df_str["_kode_str"].isin(valid_kodes)].copy()
+                filtered_df["_order"] = filtered_df["_kode_str"].map(order_map)
+                filtered_df = filtered_df.sort_values("_order").drop(columns=["_order","_kode_str"]).reset_index(drop=True)
 
-        # ── Build editable grid ───────────────────────────────────────────────
-        if not filtered_df.empty:
-            st.subheader("📋 Tabel Planning (isi jumlah CS)")
-            st.caption("Kosongkan sel jika tidak ada filling. Centang **Urgent** per produk.")
-
-            grid_key = f"grid_{week_monday.strftime('%Y%m%d')}_{'-'.join(sorted(valid_kodes))}"
-            if grid_key not in st.session_state:
+                # Buat grid baru — reset isi lama
                 init_data = {
                     "Urgent":      [False] * len(filtered_df),
-                    "Kode_Produk": list(filtered_df["Kode_Produk"]),
+                    "Kode_Produk": list(filtered_df["Kode_Produk"].astype(str)),
                     "Nama_Produk": list(filtered_df["Nama_Produk"]),
                 }
                 for col in shift_cols:
                     init_data[col] = [None] * len(filtered_df)
                 st.session_state[grid_key] = pd.DataFrame(init_data)
+
+        # ── Build editable grid ───────────────────────────────────────────────
+        if grid_key in st.session_state and not st.session_state[grid_key].empty:
+            st.subheader("📋 Tabel Planning (isi jumlah CS)")
+            st.caption("Kosongkan sel jika tidak ada filling. Centang **Urgent** per produk.")
 
             edited_df = st.data_editor(
                 st.session_state[grid_key],
@@ -180,7 +182,7 @@ with tab2:
             )
             st.session_state[grid_key] = edited_df
         else:
-            st.info("Masukkan kode produk di atas untuk menampilkan tabel.")
+            st.info("Masukkan kode produk lalu klik **Tampilkan Tabel**.")
             edited_df = pd.DataFrame()
 
         if st.button("💾 Simpan Planning", type="primary", use_container_width=True):
