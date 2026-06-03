@@ -131,11 +131,14 @@ with tab2:
         input_kodes = [k.strip() for k in re.split(r"[,\n\r]+|\s+", raw_input) if k.strip()]
 
         if input_kodes:
-            not_found   = [k for k in input_kodes if k not in all_kodes]
-            valid_kodes = [k for k in input_kodes if k in all_kodes]
+            # Normalize kode ke string untuk perbandingan
+            all_kodes_str   = [str(k) for k in all_kodes]
+            input_kodes_str = [str(k) for k in input_kodes]
+            not_found   = [k for k in input_kodes_str if k not in all_kodes_str]
+            valid_kodes = [k for k in input_kodes_str if k in all_kodes_str]
             if not_found:
                 st.warning(f"⚠️ Tidak ditemukan di master: {', '.join(not_found)}")
-            filtered_df = produk_df[produk_df["Kode_Produk"].isin(valid_kodes)].reset_index(drop=True)
+            filtered_df = produk_df[produk_df["Kode_Produk"].astype(str).isin(valid_kodes)].reset_index(drop=True)
         else:
             valid_kodes = []
             filtered_df = pd.DataFrame(columns=produk_df.columns)
