@@ -162,71 +162,25 @@ with tab2:
                     init_data[col] = [None] * len(filtered_df)
                 st.session_state[grid_key] = pd.DataFrame(init_data)
 
-        # ── Template Excel & Upload ───────────────────────────────────────────
+        # ── Build editable grid ───────────────────────────────────────────────
         if grid_key in st.session_state and not st.session_state[grid_key].empty:
-            st.subheader("📋 Template Planning")
+            st.subheader("📋 Tabel Planning (isi jumlah CS)")
+            st.caption("Kosongkan sel jika tidak ada filling. Centang **Urgent** per produk.")
 
-            template_df = st.session_state[grid_key].copy()
-
-            # Download template
-            from openpyxl import Workbook
-            from openpyxl.styles import PatternFill, Font, Alignment
-            from openpyxl.utils import get_column_letter
-
-            wb  = Workbook()
-            ws  = wb.active
-            ws.title = "Planning"
-
-            hdr_fill  = PatternFill("solid", fgColor="1F4E79")
-            hdr_font  = Font(bold=True, color="FFFFFF")
-            lock_fill = PatternFill("solid", fgColor="D9E1F2")
-            center    = Alignment(horizontal="center", vertical="center", wrap_text=True)
-
-            headers = list(template_df.columns)
-            for ci, h in enumerate(headers, 1):
-                cell           = ws.cell(row=1, column=ci, value=h)
-                cell.fill      = hdr_fill
-                cell.font      = hdr_font
-                cell.alignment = center
-
-            for ri, (_, row) in enumerate(template_df.iterrows(), 2):
-                for ci, (h, val) in enumerate(zip(headers, row), 1):
-                    cell           = ws.cell(row=ri, column=ci, value=val if val not in [None, False] else None)
-                    cell.alignment = center
-                    # Lock kode & nama produk dengan warna berbeda
-                    if h in ["Urgent", "Kode_Produk", "Nama_Produk"]:
-                        cell.fill = lock_fill
-
-            # Column widths
-            ws.column_dimensions["A"].width = 8   # Urgent
-            ws.column_dimensions["B"].width = 15  # Kode
-            ws.column_dimensions["C"].width = 20  # Nama
-            for i in range(3, len(headers)):
-                ws.column_dimensions[get_column_letter(i + 1)].width = 12
-            ws.row_dimensions[1].height = 30
-
-            buf = io.BytesIO()
-            wb.save(buf)
-
-            st.download_button(
-                "📥 Download Template Excel",
-                buf.getvalue(),
-                "template_planning.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
+            edited_df = st.data_editor(
+                st.session_state[grid_key],
+                use_container_width=True,
+                hide_index=True,
+                key=f"editor_{grid_key}",
+                column_config={
+                    "Urgent":      st.column_config.CheckboxColumn("🚨 Urgent", default=False),
+                    "Kode_Produk": st.column_config.TextColumn("Kode Produk", disabled=True),
+                    "Nama_Produk": st.column_config.TextColumn("Nama Produk", disabled=True),
+                    **{col: st.column_config.NumberColumn(col, min_value=0, step=1)
+                       for col in shift_cols}
+                }
             )
-
-            st.caption("Isi kolom CS di Excel, kolom **Urgent** isi `TRUE`/`FALSE`, lalu upload kembali.")
-
-            # Upload filled template
-            up_filled = st.file_uploader("📤 Upload Template yang Sudah Diisi", type=["xlsx"], key=f"up_{grid_key}")
-            if up_filled:
-                filled_df = pd.read_excel(up_filled)
-                st.session_state[grid_key] = filled_df
-                st.success("✅ Template berhasil diupload!")
-
-            edited_df = st.session_state[grid_key]
-
+            st.session_state[grid_key] = edited_df
         else:
             st.info("Masukkan kode produk lalu klik **Tampilkan Tabel**.")
             edited_df = pd.DataFrame()
