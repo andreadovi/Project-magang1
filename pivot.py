@@ -83,13 +83,11 @@ def build_pivot(schedule_df, master_mixer, master_produk, date_range):
     # ── Build dataframe ───────────────────────────────────────
     records = []
     for row_mixer, kode, nama in rows:
-        # Skip if product was scheduled on a different mixer
-        if kode in scheduled_mixer and scheduled_mixer[kode] != row_mixer:
+        # Skip if product was not scheduled at all
+        if kode not in scheduled_mixer:
             continue
-        # Skip if product has no data AND no cleaning on this mixer
-        has_data  = bool(pivot_data.get((row_mixer, kode), {}))
-        has_clean = any((row_mixer, kode, d, s) in cleaning_cells for (d, s) in col_keys)
-        if not has_data and not has_clean:
+        # Skip if product was scheduled on a different mixer
+        if scheduled_mixer[kode] != row_mixer:
             continue
 
         rec = {"Mixer": row_mixer, "Kode_Produk": kode, "Nama_Produk": nama}
