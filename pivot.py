@@ -64,7 +64,9 @@ def build_pivot(schedule_df, master_mixer, master_produk, date_range):
         resting_days = int(row.get("Resting_Days", 0))
 
         # Track which mixer actually used for this product
-        scheduled_mixer[kode] = mx
+        # Only set if not already set (first occurrence wins)
+        if kode not in scheduled_mixer:
+            scheduled_mixer[kode] = mx
 
         key = (mx, kode)
         if key not in pivot_data:
@@ -175,7 +177,12 @@ def pivot_to_excel(pivot_df, meta, master_mixer):
     cur_row    = 3
 
     for mixer in mixer_list:
-        mixer_rows = [(m, k, n) for m, k, n in rows if m == mixer]
+        # Only include rows that are in pivot_df (already filtered)
+        mixer_rows = [
+            (m, k, n) for m, k, n in rows
+            if m == mixer and
+            not pivot_df[(pivot_df["Mixer"] == m) & (pivot_df["Kode_Produk"] == k)].empty
+        ]
         if not mixer_rows:
             continue
         mixer_start = cur_row
