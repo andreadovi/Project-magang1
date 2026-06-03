@@ -138,7 +138,13 @@ with tab2:
             valid_kodes = [k for k in input_kodes_str if k in all_kodes_str]
             if not_found:
                 st.warning(f"⚠️ Tidak ditemukan di master: {', '.join(not_found)}")
-            filtered_df = produk_df[produk_df["Kode_Produk"].astype(str).isin(valid_kodes)].reset_index(drop=True)
+            # Jaga urutan sesuai input
+            produk_df_str = produk_df.copy()
+            produk_df_str["Kode_Produk_str"] = produk_df_str["Kode_Produk"].astype(str)
+            order_map   = {k: i for i, k in enumerate(valid_kodes)}
+            filtered_df = produk_df_str[produk_df_str["Kode_Produk_str"].isin(valid_kodes)].copy()
+            filtered_df["_order"] = filtered_df["Kode_Produk_str"].map(order_map)
+            filtered_df = filtered_df.sort_values("_order").drop(columns=["_order","Kode_Produk_str"]).reset_index(drop=True)
         else:
             valid_kodes = []
             filtered_df = pd.DataFrame(columns=produk_df.columns)
