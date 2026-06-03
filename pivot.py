@@ -22,12 +22,14 @@ def build_pivot(schedule_df, master_mixer, master_produk, date_range):
         return pd.DataFrame(), {}
 
     col_keys   = []  # (date_str, shift)
-    col_labels = []  # "Senin\nShift 1"
+    col_labels = []  # "Kamis, 07 Jun\nShift 1"
     for d in date_range:
         day_name = date_to_day(d)
+        dt       = datetime.strptime(d, "%Y-%m-%d")
+        date_lbl = dt.strftime("%d %b")
         for s in [1, 2, 3]:
             col_keys.append((d, s))
-            col_labels.append(f"{day_name}\nShift {s}")
+            col_labels.append(f"{day_name}, {date_lbl}\nShift {s}")
 
     # ── Row index: per mixer → per compatible produk ──────────
     mixer_order = list(master_mixer["Mixer"])
@@ -150,15 +152,17 @@ def pivot_to_excel(pivot_df, meta, master_mixer):
     for i, (d, s) in enumerate(col_keys):
         date_groups.setdefault(d, []).append(DATA_START_COL + i)
 
-    for d, cols in date_groups.items():
-        day_name   = date_to_day(d)
-        start_c, end_c = cols[0], cols[-1]
-        cell       = ws.cell(row=1, column=start_c, value=day_name)
-        cell.fill  = subhdr_fill
-        cell.font  = subhdr_font
+    # ── Single row header: "Kamis, 07 Jun | Shift 1" ──────────
+    # (no merge needed — each date is unique)
+    for i, (d, s) in enumerate(col_keys):
+        col      = DATA_START_COL + i
+        day_name = date_to_day(d)
+        dt_lbl   = datetime.strptime(d, "%Y-%m-%d").strftime("%d %b")
+        cell     = ws.cell(row=1, column=col, value=f"{day_name}, {dt_lbl}")
+        cell.fill      = subhdr_fill
+        cell.font      = subhdr_font
         cell.alignment = center
-        if start_c != end_c:
-            ws.merge_cells(start_row=1, end_row=1, start_column=start_c, end_column=end_c)
+        ws.merge_cells(start_row=1, end_row=1, start_column=col, end_column=col)
 
     # ── Row 2: shift headers ──────────────────────────────────
     for i, (d, s) in enumerate(col_keys):
@@ -198,10 +202,11 @@ def pivot_to_excel(pivot_df, meta, master_mixer):
                     cell.fill  = rest_fill
                     cell.value = ""
                 else:
-                    label = f"{date_to_day(d)}\nShift {s}"
+                    dt_lbl = datetime.strptime(d, "%Y-%m-%d").strftime("%d %b")
+                    label  = f"{date_to_day(d)}, {dt_lbl}\nShift {s}"
                     if label in pivot_df.columns:
                         val_series = pivot_df.loc[
-                            (pivot_df["Mixer"] == mixer) &
+                            (pivot_df["Mixer"] == row_mixer) &
                             (pivot_df["Kode_Produk"] == kode), label
                         ]
                         v = val_series.values[0] if len(val_series) > 0 else ""
