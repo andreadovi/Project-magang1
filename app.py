@@ -113,66 +113,96 @@ with tab2:
 
         st.caption(f"Minggu: **{week_monday.strftime('%d %b')} — {week_dates[-1].strftime('%d %b %Y')}**")
 
-        # ── Build editable grid ───────────────────────────────────────────────
-        st.subheader("📋 Tabel Planning (isi jumlah CS)")
-        st.caption("Kosongkan sel jika tidak ada filling. Centang **Urgent** per produk.")
+        # ── Filter produk ─────────────────────────────────────────────────────
+        st.subheader("🔍 Pilih Produk yang Dijadwalkan")
+        st.caption("Ketik atau paste kode produk, pisahkan dengan koma atau baris baru.")
 
         produk_df = st.session_state.master_produk
+        all_kodes = list(produk_df["Kode_Produk"])
 
-        # Init grid per week
-        grid_key = f"grid_{week_monday.strftime('%Y%m%d')}"
-        if grid_key not in st.session_state:
-            init_data = {
-                "Urgent":       [False] * len(produk_df),
-                "Kode_Produk":  list(produk_df["Kode_Produk"]),
-                "Nama_Produk":  list(produk_df["Nama_Produk"]),
-            }
-            for col in shift_cols:
-                init_data[col] = [None] * len(produk_df)
-            st.session_state[grid_key] = pd.DataFrame(init_data)
-
-        edited_df = st.data_editor(
-            st.session_state[grid_key],
-            use_container_width=True,
-            hide_index=True,
-            key=f"editor_{grid_key}",
-            column_config={
-                "Urgent":      st.column_config.CheckboxColumn("🚨 Urgent", default=False),
-                "Kode_Produk": st.column_config.TextColumn("Kode Produk", disabled=True),
-                "Nama_Produk": st.column_config.TextColumn("Nama Produk", disabled=True),
-                **{col: st.column_config.NumberColumn(col, min_value=0, step=1)
-                   for col in shift_cols}
-            }
+        raw_input = st.text_area(
+            "Kode Produk",
+            placeholder="Contoh: P001, P002, P003",
+            height=80,
+            key=f"kode_input_{week_monday.strftime('%Y%m%d')}"
         )
-        # Persist edits without triggering rerun
-        st.session_state[grid_key] = edited_df
+
+        import re
+        input_kodes = [k.strip() for k in re.split(r"[,\n\r]+|\s+", raw_input) if k.strip()]
+
+        if input_kodes:
+            not_found   = [k for k in input_kodes if k not in all_kodes]
+            valid_kodes = [k for k in input_kodes if k in all_kodes]
+            if not_found:
+                st.warning(f"⚠️ Tidak ditemukan di master: {', '.join(not_found)}")
+            filtered_df = produk_df[produk_df["Kode_Produk"].isin(valid_kodes)].reset_index(drop=True)
+        else:
+            valid_kodes = []
+            filtered_df = pd.DataFrame(columns=produk_df.columns)
+
+        # ── Build editable grid ───────────────────────────────────────────────
+        if not filtered_df.empty:
+            st.subheader("📋 Tabel Planning (isi jumlah CS)")
+            st.caption("Kosongkan sel jika tidak ada filling. Centang **Urgent** per produk.")
+
+            grid_key = f"grid_{week_monday.strftime('%Y%m%d')}_{'-'.join(sorted(valid_kodes))}"
+            if grid_key not in st.session_state:
+                init_data = {
+                    "Urgent":      [False] * len(filtered_df),
+                    "Kode_Produk": list(filtered_df["Kode_Produk"]),
+                    "Nama_Produk": list(filtered_df["Nama_Produk"]),
+                }
+                for col in shift_cols:
+                    init_data[col] = [None] * len(filtered_df)
+                st.session_state[grid_key] = pd.DataFrame(init_data)
+
+            edited_df = st.data_editor(
+                st.session_state[grid_key],
+                use_container_width=True,
+                hide_index=True,
+                key=f"editor_{grid_key}",
+                column_config={
+                    "Urgent":      st.column_config.CheckboxColumn("🚨 Urgent", default=False),
+                    "Kode_Produk": st.column_config.TextColumn("Kode Produk", disabled=True),
+                    "Nama_Produk": st.column_config.TextColumn("Nama Produk", disabled=True),
+                    **{col: st.column_config.NumberColumn(col, min_value=0, step=1)
+                       for col in shift_cols}
+                }
+            )
+            st.session_state[grid_key] = edited_df
+        else:
+            st.info("Masukkan kode produk di atas untuk menampilkan tabel.")
+            edited_df = pd.DataFrame()
 
         if st.button("💾 Simpan Planning", type="primary", use_container_width=True):
-            # Reset dulu sebelum simpan baru (hindari duplikasi)
-            st.session_state.filling_plan = pd.DataFrame()
-            # Convert grid to long format filling_plan
-            rows = []
-            for _, row in edited_df.iterrows():
-                kode   = row["Kode_Produk"]
-                nama   = row["Nama_Produk"]
-                urgent = "Urgent" if row["Urgent"] else "Tidak Urgent"
-                for col, (date_str, shift_num) in zip(shift_cols, shift_meta):
-                    val = row[col]
-                    if pd.notna(val) and val is not None and float(val) > 0:
-                        rows.append({
-                            "Kode_Produk":     kode,
-                            "Nama_Produk":     nama,
-                            "Target_CS":       float(val),
-                            "Tanggal_Filling": date_str,
-                            "Shift_Filling":   shift_num,
-                            "Urgent":          urgent
-                        })
-
-            if rows:
-                st.session_state.filling_plan = pd.DataFrame(rows)
-                st.success(f"✅ {len(rows)} item planning tersimpan!")
+            if edited_df.empty:
+                st.warning("⚠️ Masukkan kode produk dan isi tabel terlebih dahulu.")
             else:
-                st.warning("⚠️ Tidak ada data yang diisi.")
+                # Reset dulu sebelum simpan baru (hindari duplikasi)
+                st.session_state.filling_plan = pd.DataFrame()
+                # Convert grid to long format filling_plan
+                rows = []
+                for _, row in edited_df.iterrows():
+                    kode   = row["Kode_Produk"]
+                    nama   = row["Nama_Produk"]
+                    urgent = "Urgent" if row["Urgent"] else "Tidak Urgent"
+                    for col, (date_str, shift_num) in zip(shift_cols, shift_meta):
+                        val = row[col]
+                        if pd.notna(val) and val is not None and float(val) > 0:
+                            rows.append({
+                                "Kode_Produk":     kode,
+                                "Nama_Produk":     nama,
+                                "Target_CS":       float(val),
+                                "Tanggal_Filling": date_str,
+                                "Shift_Filling":   shift_num,
+                                "Urgent":          urgent
+                            })
+
+                if rows:
+                    st.session_state.filling_plan = pd.DataFrame(rows)
+                    st.success(f"✅ {len(rows)} item planning tersimpan!")
+                else:
+                    st.warning("⚠️ Tidak ada data yang diisi.")
 
         # Show saved plan summary
         if not st.session_state.filling_plan.empty:
@@ -300,6 +330,10 @@ with tab3:
                         schedule_df.drop(columns=["Cleaning"], errors="ignore"),
                         use_container_width=True, hide_index=True
                     )
+                    st.write("Total baris schedule:", len(schedule_df))
+                    st.write("Total baris filling plan:", len(st.session_state.filling_plan))
+                    st.write("Filling plan:")
+                    st.dataframe(st.session_state.filling_plan)
 
                 with st.expander("🔍 Debug: Pivot Rows"):
                     if not pivot_df.empty:
