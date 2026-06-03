@@ -206,7 +206,7 @@ def pivot_to_excel(pivot_df, meta, master_mixer):
                     label  = f"{date_to_day(d)}, {dt_lbl}\nShift {s}"
                     if label in pivot_df.columns:
                         val_series = pivot_df.loc[
-                            (pivot_df["Mixer"] == row_mixer) &
+                            (pivot_df["Mixer"] == mixer) &
                             (pivot_df["Kode_Produk"] == kode), label
                         ]
                         v = val_series.values[0] if len(val_series) > 0 else ""
