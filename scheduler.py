@@ -239,7 +239,11 @@ def generate_mixing_schedule(master_mixer, master_produk, filling_plan):
             continue
 
         kg_per_cs    = float(prod_row["Kg_per_CS"].values[0])
-        target_kg    = target_cs * kg_per_cs
+        target_kg_raw = target_cs * kg_per_cs
+        # Bulatkan ke kelipatan 500 terdekat
+        target_kg    = round(target_kg_raw / 500) * 500
+        if target_kg == 0:
+            target_kg = 500
         grup_produk  = prod_row["Grup_Cleaning"].values[0]
         # Use merged mixer list if available (from MC liquid grouping)
         if "Mixer_Kompatibel_All" in item and pd.notna(item["Mixer_Kompatibel_All"]):
