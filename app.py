@@ -33,9 +33,10 @@ with tab1:
     with col1:
         st.subheader("🔧 Master Mixer")
         tmpl_mixer = pd.DataFrame({
-            "Mixer":         ["Mixer A", "Mixer B", "Mixer C"],
-            "Kapasitas_kg":  [500, 800, 300],
-            "Grup_Cleaning": ["Grup 1", "Grup 1", "Grup 2"]
+            "Mixer":          ["Mixer A", "Mixer B", "Mixer C"],
+            "Kapasitas_kg":   [500, 800, 300],
+            "Batch_per_Shift":[2, 3, 2],
+            "Grup_Cleaning":  ["Grup 1", "Grup 1", "Grup 2"]
         })
         buf = io.BytesIO(); tmpl_mixer.to_excel(buf, index=False)
         st.download_button("📥 Download Template Mixer", buf.getvalue(),
@@ -44,7 +45,7 @@ with tab1:
         up_mixer = st.file_uploader("Upload Master Mixer", type=["xlsx", "csv"], key="mixer_upload")
         if up_mixer:
             df  = pd.read_excel(up_mixer) if up_mixer.name.endswith("xlsx") else pd.read_csv(up_mixer)
-            req = {"Mixer", "Kapasitas_kg", "Grup_Cleaning"}
+            req = {"Mixer", "Kapasitas_kg", "Batch_per_Shift", "Grup_Cleaning"}
             if req.issubset(df.columns):
                 st.session_state.master_mixer = df
                 st.success(f"✅ {len(df)} mixer berhasil diupload!")
