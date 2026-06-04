@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 import math
 
 SHIFTS_PER_DAY    = 3
-BATCHES_PER_SHIFT = 2
+BATCHES_PER_SHIFT = 2  # default fallback
 
 
 def shift_index(date_str, shift):
@@ -36,12 +36,11 @@ def get_deadline_idx(fill_date, fill_shift, resting_days):
 
 
 def try_schedule_on_mixer(mixer_name, mixer_schedule, deadline_idx,
-                           target_kg, cap, grup_produk, mixer_last_grup):
+                           target_kg, cap, batch_per_shift, grup_produk, mixer_last_grup):
     """
     Try to schedule all target_kg on a SINGLE mixer using CONTIGUOUS slots
     going backwards from deadline_idx. No gaps allowed.
-    Slots with partial availability are included; fully blocked slots
-    (cleaning or grup conflict) cause the window to shift back.
+    Uses per-mixer batch_per_shift instead of global constant.
     """
     remaining_kg  = target_kg
     search_idx    = deadline_idx
@@ -58,13 +57,12 @@ def try_schedule_on_mixer(mixer_name, mixer_schedule, deadline_idx,
 
         # Hard block: cleaning shift
         if state.get("cleaning", False):
-            # Gap not allowed — reset and move window before this block
             assignments  = []
             remaining_kg = target_kg
             search_idx  -= 1
             continue
 
-        avail = BATCHES_PER_SHIFT - state.get("batches_used", 0)
+        avail = batch_per_shift - state.get("batches_used", 0)
 
         # Hard block: fully used
         if avail <= 0:
@@ -82,7 +80,7 @@ def try_schedule_on_mixer(mixer_name, mixer_schedule, deadline_idx,
             search_idx  -= 1
             continue
 
-        # Slot is usable — add to front of assignments (we go backwards)
+        # Slot is usable
         use_kg      = min(avail * cap, remaining_kg)
         use_batches = math.ceil(use_kg / cap)
         actual_kg   = use_batches * cap
@@ -129,6 +127,12 @@ def generate_mixing_schedule(master_mixer, master_produk, filling_plan):
         row = mixer_df[mixer_df["Mixer"] == mixer_name]
         return float(row["Kapasitas_kg"].values[0]) if not row.empty else 0
 
+    def get_batch_per_shift(mixer_name):
+        row = mixer_df[mixer_df["Mixer"] == mixer_name]
+        if not row.empty and "Batch_per_Shift" in row.columns:
+            return int(row["Batch_per_Shift"].values[0])
+        return BATCHES_PER_SHIFT
+
     def get_shift_state(mixer_name, sidx):
         if sidx not in mixer_schedule[mixer_name]:
             mixer_schedule[mixer_name][sidx] = {
@@ -140,7 +144,7 @@ def generate_mixing_schedule(master_mixer, master_produk, filling_plan):
     def mark_cleaning(mixer_name, sidx):
         state = get_shift_state(mixer_name, sidx)
         state["cleaning"]     = True
-        state["batches_used"] = BATCHES_PER_SHIFT
+        state["batches_used"] = get_batch_per_shift(mixer_name)
 
     def book_batches(mixer_name, sidx, n_batches, grup, kode, nama,
                      kg_per_batch, total_kg, total_cs):
@@ -209,13 +213,14 @@ def generate_mixing_schedule(master_mixer, master_produk, filling_plan):
                 if mixer_name not in mixer_schedule:
                     continue
 
-                cap  = get_mixer_capacity(mixer_name)
+                cap             = get_mixer_capacity(mixer_name)
+                batch_per_shift = get_batch_per_shift(mixer_name)
                 if cap <= 0:
                     continue
 
                 assignments = try_schedule_on_mixer(
                     mixer_name, mixer_schedule, try_deadline,
-                    target_kg, cap, grup_produk, mixer_last_grup
+                    target_kg, cap, batch_per_shift, grup_produk, mixer_last_grup
                 )
 
                 if assignments is not None:
