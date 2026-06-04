@@ -246,11 +246,15 @@ with tab2:
                     urgent = "Urgent" if str(row["Urgent"]).strip().upper() in ["TRUE","1","URGENT"] else "Tidak Urgent"
                     for col, (date_str, shift_num) in zip(shift_cols, shift_meta):
                         val = row[col]
-                        if pd.notna(val) and val is not None and float(val) > 0:
+                        try:
+                            val_float = float(val) if pd.notna(val) and val is not None else 0
+                        except (ValueError, TypeError):
+                            val_float = 0
+                        if val_float > 0:
                             rows.append({
                                 "Kode_Produk":     kode,
                                 "Nama_Produk":     nama,
-                                "Target_CS":       float(val),
+                                "Target_CS":       val_float,
                                 "Tanggal_Filling": date_str,
                                 "Shift_Filling":   shift_num,
                                 "Urgent":          urgent
