@@ -172,7 +172,7 @@ def generate_mixing_schedule(master_mixer, master_produk, filling_plan):
         fill_shift = int(item["Shift_Filling"])
         is_urgent  = item["Urgent"] == "Urgent"
 
-        prod_row = produk_df[produk_df["Kode_Produk"] == kode]
+        prod_row = produk_df[produk_df["Kode_Produk"].astype(str).str.strip() == str(kode).strip()]
         if prod_row.empty:
             unscheduled.append(f"Produk {kode} tidak ditemukan di Master Produk.")
             continue
