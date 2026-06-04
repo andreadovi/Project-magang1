@@ -112,6 +112,9 @@ def generate_mixing_schedule(master_mixer, master_produk, filling_plan):
     produk_df = master_produk.copy()
     plan_df   = filling_plan.copy()
 
+    # Normalize mixer names in master
+    mixer_df["Mixer"] = mixer_df["Mixer"].astype(str).str.strip()
+
     produk_df["Mixer_List"] = produk_df["Mixer_Kompatibel"].apply(
         lambda x: [m.strip() for m in str(x).split(",")]
     )
@@ -160,17 +163,59 @@ def generate_mixing_schedule(master_mixer, master_produk, filling_plan):
         })
         mixer_last_grup[mixer_name] = grup
 
+    # ── Merge MC liquid info into plan ───────────────────────
+    if "Kode_MC_Liquid" in produk_df.columns:
+        plan_df = plan_df.merge(
+            produk_df[["Kode_Produk", "Kode_MC_Liquid"]].assign(
+                Kode_Produk=lambda x: x["Kode_Produk"].astype(str).str.strip()
+            ),
+            left_on=plan_df["Kode_Produk"].astype(str).str.strip(),
+            right_on="Kode_Produk",
+            how="left",
+            suffixes=("", "_mp")
+        ).drop(columns=["Kode_Produk_mp"], errors="ignore")
+        plan_df["Kode_MC_Liquid"] = plan_df["Kode_MC_Liquid"].fillna(
+            plan_df["Kode_Produk"].astype(str)
+        )
+    else:
+        plan_df["Kode_MC_Liquid"] = plan_df["Kode_Produk"].astype(str)
+
+    # ── Group by MC liquid + filling slot ────────────────────
+    # Products with same MC liquid + same filling slot → merge into 1 mixing job
+    group_cols = ["Kode_MC_Liquid", "Tanggal_Filling", "Shift_Filling", "Urgent"]
+    grouped_rows = []
+    for group_key, grp in plan_df.groupby(group_cols, sort=False):
+        mc_liquid, fill_date, fill_shift, urgent = group_key
+        total_cs  = grp["Target_CS"].astype(float).sum()
+        kode_list = list(grp["Kode_Produk"].astype(str).str.strip().unique())
+
+        # Use first product's attributes (mixer compat, grup, resting)
+        first_kode = kode_list[0]
+        grouped_rows.append({
+            "Kode_Produk":     first_kode,
+            "Kode_MC_Liquid":  mc_liquid,
+            "Kode_List":       kode_list,
+            "Nama_Produk":     mc_liquid,
+            "Target_CS":       total_cs,
+            "Tanggal_Filling": fill_date,
+            "Shift_Filling":   fill_shift,
+            "Urgent":          urgent
+        })
+
+    plan_grouped = pd.DataFrame(grouped_rows)
+
     # ── Sort: urgent first, then by filling shift ─────────────
-    plan_df["_sidx"]        = plan_df.apply(
+    plan_grouped["_sidx"]        = plan_grouped.apply(
         lambda r: shift_index(r["Tanggal_Filling"], r["Shift_Filling"]), axis=1)
-    plan_df["_urgent_sort"] = plan_df["Urgent"].apply(
+    plan_grouped["_urgent_sort"] = plan_grouped["Urgent"].apply(
         lambda x: 0 if x == "Urgent" else 1)
-    plan_df = plan_df.sort_values(["_urgent_sort", "_sidx"]).reset_index(drop=True)
+    plan_grouped = plan_grouped.sort_values(["_urgent_sort", "_sidx"]).reset_index(drop=True)
 
     # ── Schedule each item ────────────────────────────────────
-    for _, item in plan_df.iterrows():
+    for _, item in plan_grouped.iterrows():
         kode       = item["Kode_Produk"]
-        nama       = item.get("Nama_Produk", kode)
+        mc_liquid  = item["Kode_MC_Liquid"]
+        nama       = mc_liquid
         target_cs  = float(item["Target_CS"])
         fill_date  = str(item["Tanggal_Filling"])
         fill_shift = int(item["Shift_Filling"])
@@ -178,7 +223,7 @@ def generate_mixing_schedule(master_mixer, master_produk, filling_plan):
 
         prod_row = produk_df[produk_df["Kode_Produk"].astype(str).str.strip() == str(kode).strip()]
         if prod_row.empty:
-            unscheduled.append(f"Produk {kode} tidak ditemukan di Master Produk.")
+            unscheduled.append(f"MC Liquid {mc_liquid} (Produk {kode}) tidak ditemukan di Master Produk.")
             continue
 
         kg_per_cs    = float(prod_row["Kg_per_CS"].values[0])
@@ -268,8 +313,8 @@ def generate_mixing_schedule(master_mixer, master_produk, filling_plan):
                     "Tanggal":         s_date,
                     "Shift":           s_shift,
                     "Mixer":           mixer_name,
-                    "Produk":          nama,
-                    "Kode_Produk":     kode,
+                    "Produk":          mc_liquid,
+                    "Kode_Produk":     mc_liquid,
                     "Batches":         a["batches"],
                     "Kapasitas_Mixer": a["kg_per_batch"],
                     "Total_CS":        actual_cs,
