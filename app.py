@@ -61,6 +61,7 @@ with tab1:
         tmpl_produk = pd.DataFrame({
             "Kode_Produk":      ["P001", "P002", "P003"],
             "Nama_Produk":      ["Produk Alpha", "Produk Beta", "Produk Gamma"],
+            "Kode_MC_Liquid":   ["ML001", "ML002", "ML001"],
             "Grup_Cleaning":    ["Grup 1", "Grup 1", "Grup 2"],
             "Kg_per_CS":        [12.5, 8.0, 10.0],
             "Resting_Days":     [0, 2, 0],
@@ -73,7 +74,7 @@ with tab1:
         up_produk = st.file_uploader("Upload Master Produk", type=["xlsx", "csv"], key="produk_upload")
         if up_produk:
             df  = pd.read_excel(up_produk) if up_produk.name.endswith("xlsx") else pd.read_csv(up_produk)
-            req = {"Kode_Produk", "Nama_Produk", "Grup_Cleaning", "Kg_per_CS", "Resting_Days", "Mixer_Kompatibel"}
+            req = {"Kode_Produk", "Nama_Produk", "Kode_MC_Liquid", "Grup_Cleaning", "Kg_per_CS", "Resting_Days", "Mixer_Kompatibel"}
             if req.issubset(df.columns):
                 st.session_state.master_produk = df
                 st.success(f"✅ {len(df)} produk berhasil diupload!")
@@ -392,10 +393,11 @@ with tab3:
                         schedule_df.drop(columns=["Cleaning"], errors="ignore"),
                         use_container_width=True, hide_index=True
                     )
-                    st.write("Total baris schedule:", len(schedule_df))
-                    st.write("Total baris filling plan:", len(st.session_state.filling_plan))
-                    st.write("Filling plan:")
-                    st.dataframe(st.session_state.filling_plan)
+                    st.write("**Debug:**")
+                    st.write("Mixer di master:", list(st.session_state.master_mixer["Mixer"]))
+                    st.write("Sample Mixer_Kompatibel:", list(st.session_state.master_produk["Mixer_Kompatibel"].head(3)))
+                    st.write("Sample Kode di filling plan:", list(st.session_state.filling_plan["Kode_Produk"].head(3)))
+                    st.write("Sample Kode di master produk:", list(st.session_state.master_produk["Kode_Produk"].astype(str).head(3)))
 
                 with st.expander("🔍 Debug: Pivot Rows"):
                     if not pivot_df.empty:
