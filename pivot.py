@@ -31,15 +31,17 @@ def build_pivot(schedule_df, master_mixer, master_produk, date_range):
             col_keys.append((d, s))
             col_labels.append(f"{day_name}, {date_lbl}\nShift {s}")
 
-    # ── Row index: per mixer → per compatible produk ──────────
+    # ── Row index: built from schedule_df (mc_liquid based) ─────
     mixer_order = list(master_mixer["Mixer"])
+    # Get unique (mixer, kode, nama) from actual schedule
+    sched_rows = schedule_df[~schedule_df["Cleaning"]].copy() if "Cleaning" in schedule_df.columns else schedule_df.copy()
+    sched_rows = sched_rows[["Mixer","Kode_Produk","Produk"]].drop_duplicates()
+
     rows = []
     for mixer in mixer_order:
-        compat = master_produk[
-            master_produk["Mixer_Kompatibel"].str.contains(mixer, na=False)
-        ][["Kode_Produk", "Nama_Produk"]].drop_duplicates()
-        for _, p in compat.iterrows():
-            rows.append((mixer, p["Kode_Produk"], p["Nama_Produk"]))
+        mixer_sched = sched_rows[sched_rows["Mixer"] == mixer]
+        for _, r in mixer_sched.iterrows():
+            rows.append((mixer, r["Kode_Produk"], r["Produk"]))
 
     # ── Fill pivot data ───────────────────────────────────────
     pivot_data     = {}  # (mixer, kode) -> {(date, shift): kg}
