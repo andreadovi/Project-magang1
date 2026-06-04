@@ -189,17 +189,29 @@ def generate_mixing_schedule(master_mixer, master_produk, filling_plan):
         total_cs  = grp["Target_CS"].astype(float).sum()
         kode_list = list(grp["Kode_Produk"].astype(str).str.strip().unique())
 
-        # Use first product's attributes (mixer compat, grup, resting)
+        # Use first product's attributes, but merge ALL mixer compat from group
         first_kode = kode_list[0]
+
+        # Collect all unique mixers compatible with any product in this MC liquid group
+        all_mixers = []
+        for kd in kode_list:
+            pr = produk_df[produk_df["Kode_Produk"].astype(str).str.strip() == str(kd).strip()]
+            if not pr.empty:
+                mixers = [m.strip() for m in str(pr["Mixer_Kompatibel"].values[0]).split(",")]
+                for m in mixers:
+                    if m not in all_mixers:
+                        all_mixers.append(m)
+
         grouped_rows.append({
-            "Kode_Produk":     first_kode,
-            "Kode_MC_Liquid":  mc_liquid,
-            "Kode_List":       kode_list,
-            "Nama_Produk":     mc_liquid,
-            "Target_CS":       total_cs,
-            "Tanggal_Filling": fill_date,
-            "Shift_Filling":   fill_shift,
-            "Urgent":          urgent
+            "Kode_Produk":        first_kode,
+            "Kode_MC_Liquid":     mc_liquid,
+            "Kode_List":          kode_list,
+            "Nama_Produk":        mc_liquid,
+            "Target_CS":          total_cs,
+            "Tanggal_Filling":    fill_date,
+            "Shift_Filling":      fill_shift,
+            "Urgent":             urgent,
+            "Mixer_Kompatibel_All": ",".join(all_mixers)
         })
 
     plan_grouped = pd.DataFrame(grouped_rows)
@@ -229,7 +241,11 @@ def generate_mixing_schedule(master_mixer, master_produk, filling_plan):
         kg_per_cs    = float(prod_row["Kg_per_CS"].values[0])
         target_kg    = target_cs * kg_per_cs
         grup_produk  = prod_row["Grup_Cleaning"].values[0]
-        mixer_compat = prod_row["Mixer_List"].values[0]
+        # Use merged mixer list if available (from MC liquid grouping)
+        if "Mixer_Kompatibel_All" in item and pd.notna(item["Mixer_Kompatibel_All"]):
+            mixer_compat = [m.strip() for m in str(item["Mixer_Kompatibel_All"]).split(",")]
+        else:
+            mixer_compat = prod_row["Mixer_List"].values[0]
         resting_days = int(prod_row["Resting_Days"].values[0])
 
         # Candidate filling slots
